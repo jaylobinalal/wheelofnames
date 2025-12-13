@@ -158,18 +158,20 @@ function spinWheel() {
   const sliceAngle = 360 / names.length;
   // The wheel is drawn with slice 0 starting at -90deg (top)
   // Slice N's center is at: -90 + (N + 0.5) * sliceAngle
-  // To land on slice N, we need to rotate so its center is at top (270deg or -90deg)
-  // Required rotation R: -90 + (N + 0.5) * sliceAngle + R = 270 (mod 360)
-  // Therefore: R = 360 - (N + 0.5) * sliceAngle
+  // To land on slice N, we need the final rotation such that slice N's center aligns with the pointer at top
+  // Required: finalRotation % 360 = 360 - (N + 0.5) * sliceAngle
   const targetSliceCenter = winnerIndex * sliceAngle + sliceAngle / 2;
-  const targetOffset = 360 - targetSliceCenter;
+  const targetOffset = (360 - targetSliceCenter + 360) % 360;
 
-  // Add multiple full rotations for effect
-  const spins = 5 + Math.random() * 3;
-  const totalRotation = spins * 360 + targetOffset;
+  // Add multiple full rotations for effect (5-8 spins)
+  const minSpins = 5 + Math.random() * 3;
+  const minFinalRotation = currentRotation + minSpins * 360;
 
-  // Calculate final rotation (add to current)
-  const finalRotation = currentRotation + totalRotation;
+  // Calculate final rotation that:
+  // 1. Lands exactly on targetOffset (finalRotation % 360 = targetOffset)
+  // 2. Spins at least minSpins times from current position
+  const k = Math.ceil((minFinalRotation - targetOffset) / 360);
+  const finalRotation = targetOffset + k * 360;
 
   // Apply rotation animation
   canvas.style.transition = 'transform 5s cubic-bezier(0.17, 0.67, 0.12, 0.99)';
