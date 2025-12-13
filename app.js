@@ -1,152 +1,339 @@
-const textarea = document.getElementById('namesInput');
-const listEl = document.getElementById('namesList');
-const selectedEl = document.getElementById('selectedName');
+// Elements
 const canvas = document.getElementById('wheelCanvas');
 const ctx = canvas.getContext('2d');
-const spinButton = document.getElementById('spinButton');
-const resultEl = document.getElementById('result');
+const textarea = document.getElementById('namesInput');
+const entryCountEl = document.getElementById('entryCount');
+const wheelWrapper = document.getElementById('wheelWrapper');
+const wheelCenter = document.querySelector('.wheel-center');
+const modalOverlay = document.getElementById('modalOverlay');
+const winnerNameEl = document.getElementById('winnerName');
+const closeModalBtn = document.getElementById('closeModalBtn');
+const removeWinnerBtn = document.getElementById('removeWinnerBtn');
+const shuffleBtn = document.getElementById('shuffleBtn');
+const sortBtn = document.getElementById('sortBtn');
+const confettiContainer = document.getElementById('confetti');
 
+// State
 let names = [];
-let selectedName = null;
 let currentRotation = 0;
+let isSpinning = false;
+let lastWinner = null;
 
+// Secret rigging - no visual indication
+let riggedName = null;
+
+// Wheel colors (matching wheelofnames.com palette)
+const colors = [
+  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
+  '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F',
+  '#BB8FCE', '#85C1E9', '#F8B500', '#00CED1',
+  '#FF7F50', '#9370DB', '#3CB371', '#FF69B4'
+];
+
+// Parse names from textarea
 function parseNames() {
   return textarea.value
     .split(/\r?\n/)
-    .map((name) => name.trim())
+    .map(n => n.trim())
     .filter(Boolean);
 }
 
-function setSelectedName(name) {
-  selectedName = name;
-  selectedEl.textContent = name ? `Rigged for: ${name}` : 'No selected name';
-  renderNames();
-}
-
-function renderNames() {
+// Update entry count
+function updateEntryCount() {
   names = parseNames();
+  entryCountEl.textContent = names.length;
 
-  if (selectedName && !names.includes(selectedName)) {
-    selectedName = null;
-    selectedEl.textContent = 'No selected name';
+  // Clear rigged name if it's no longer in the list
+  if (riggedName && !names.includes(riggedName)) {
+    riggedName = null;
   }
-
-  listEl.innerHTML = '';
-
-  names.forEach((name) => {
-    const li = document.createElement('li');
-    li.textContent = name;
-    if (name === selectedName) li.classList.add('selected');
-    li.addEventListener('dblclick', () => setSelectedName(name));
-
-    if (name === selectedName) {
-      const badge = document.createElement('span');
-      badge.className = 'badge';
-      badge.textContent = 'Selected';
-      li.appendChild(badge);
-    }
-
-    listEl.appendChild(li);
-  });
 
   drawWheel();
 }
 
-function getClickedLine(textareaEl) {
-  const pos = textareaEl.selectionStart;
-  const value = textareaEl.value;
-  const start = value.lastIndexOf('\n', pos - 1) + 1;
-  const end = value.indexOf('\n', pos);
-  const line = value.slice(start, end === -1 ? value.length : end).trim();
-  return line || null;
+// Get color for slice
+function getColor(index) {
+  return colors[index % colors.length];
 }
 
-function colorForIndex(index) {
-  const hue = (index * 360) / Math.max(8, names.length);
-  return `hsl(${hue}, 70%, 55%)`;
-}
-
+// Draw the wheel
 function drawWheel() {
   const size = canvas.width;
-  const radius = size / 2 - 6;
+  const center = size / 2;
+  const radius = center - 5;
+
   ctx.clearRect(0, 0, size, size);
 
-  if (!names.length) {
-    ctx.fillStyle = '#1f2a44';
+  if (names.length === 0) {
+    // Empty wheel
     ctx.beginPath();
-    ctx.arc(size / 2, size / 2, radius, 0, Math.PI * 2);
+    ctx.arc(center, center, radius, 0, Math.PI * 2);
+    ctx.fillStyle = '#e0e0e0';
     ctx.fill();
-    ctx.fillStyle = '#9aa7c2';
-    ctx.font = '16px Inter, sans-serif';
+
+    ctx.fillStyle = '#999';
+    ctx.font = '18px Roboto, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Add names to spin the wheel', size / 2, size / 2);
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Add names to spin', center, center);
     return;
   }
 
-  const arc = (2 * Math.PI) / names.length;
-  const startAngle = -Math.PI / 2;
+  const sliceAngle = (Math.PI * 2) / names.length;
 
   names.forEach((name, i) => {
-    const angle = startAngle + i * arc;
+    const startAngle = i * sliceAngle - Math.PI / 2;
+    const endAngle = startAngle + sliceAngle;
+
+    // Draw slice
     ctx.beginPath();
-    ctx.moveTo(size / 2, size / 2);
-    ctx.arc(size / 2, size / 2, radius, angle, angle + arc);
-    ctx.fillStyle = colorForIndex(i);
+    ctx.moveTo(center, center);
+    ctx.arc(center, center, radius, startAngle, endAngle);
+    ctx.closePath();
+    ctx.fillStyle = getColor(i);
     ctx.fill();
 
+    // Draw border
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw text
     ctx.save();
-    ctx.translate(size / 2, size / 2);
-    ctx.rotate(angle + arc / 2);
+    ctx.translate(center, center);
+    ctx.rotate(startAngle + sliceAngle / 2);
     ctx.textAlign = 'right';
-    ctx.fillStyle = '#0e1320';
-    ctx.font = 'bold 16px Inter, sans-serif';
-    ctx.fillText(name, radius - 20, 6);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 14px Roboto, sans-serif';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+
+    // Truncate long names
+    let displayName = name;
+    const maxWidth = radius - 45;
+    while (ctx.measureText(displayName).width > maxWidth && displayName.length > 3) {
+      displayName = displayName.slice(0, -1);
+    }
+    if (displayName !== name) displayName += '…';
+
+    ctx.fillText(displayName, radius - 20, 5);
     ctx.restore();
   });
+
+  // Draw outer ring
+  ctx.beginPath();
+  ctx.arc(center, center, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
 }
 
+// Spin the wheel
 function spinWheel() {
-  names = parseNames();
-  if (!names.length) {
-    resultEl.textContent = 'Add at least one name to spin.';
-    return;
+  if (isSpinning || names.length === 0) return;
+
+  isSpinning = true;
+  wheelWrapper.classList.add('spinning');
+
+  // Determine winner index
+  let winnerIndex;
+  if (riggedName && names.includes(riggedName)) {
+    // Use rigged name
+    winnerIndex = names.indexOf(riggedName);
+  } else {
+    // Random selection
+    winnerIndex = Math.floor(Math.random() * names.length);
   }
 
-  const targetIndex = selectedName && names.includes(selectedName)
-    ? names.indexOf(selectedName)
-    : Math.floor(Math.random() * names.length);
+  const winner = names[winnerIndex];
 
-  const slice = 360 / names.length;
-  const base = ((currentRotation % 360) + 360) % 360;
-  const targetOffset = -1 * (targetIndex * slice + slice / 2);
-  const spins = 6;
-  const delta = spins * 360 + (targetOffset - base);
-  const finalRotation = currentRotation + delta;
+  // Calculate target rotation
+  const sliceAngle = 360 / names.length;
+  // Target: the pointer is at top (270deg in standard coords, or -90deg)
+  // We need the center of the winning slice to be at the top
+  const targetSliceCenter = winnerIndex * sliceAngle + sliceAngle / 2;
+  // The wheel needs to rotate so that targetSliceCenter is at 270deg (top)
+  const targetOffset = 270 - targetSliceCenter;
 
-  canvas.style.transition = 'transform 5s cubic-bezier(.17,.67,.16,1.05)';
+  // Add multiple full rotations for effect
+  const spins = 5 + Math.random() * 3;
+  const totalRotation = spins * 360 + targetOffset;
+
+  // Calculate final rotation (add to current)
+  const finalRotation = currentRotation + totalRotation;
+
+  // Apply rotation animation
+  canvas.style.transition = 'transform 5s cubic-bezier(0.17, 0.67, 0.12, 0.99)';
   canvas.style.transform = `rotate(${finalRotation}deg)`;
-  resultEl.textContent = 'Spinning...';
 
-  const handleEnd = () => {
-    canvas.removeEventListener('transitionend', handleEnd);
-    currentRotation = finalRotation;
-    const winner = names[targetIndex];
-    setSelectedName(winner);
-    resultEl.textContent = `Result: ${winner}`;
-  };
+  // Handle animation end
+  setTimeout(() => {
+    currentRotation = finalRotation % 360;
+    isSpinning = false;
+    wheelWrapper.classList.remove('spinning');
+    lastWinner = winner;
 
-  canvas.addEventListener('transitionend', handleEnd);
+    // Clear rigged name after spin (one-time use)
+    riggedName = null;
+
+    // Show winner modal
+    showWinnerModal(winner);
+  }, 5000);
 }
 
-textarea.addEventListener('input', renderNames);
-textarea.addEventListener('dblclick', (event) => {
-  const line = getClickedLine(event.target);
-  if (line && names.includes(line)) {
-    setSelectedName(line);
+// Show winner modal with confetti
+function showWinnerModal(winner) {
+  winnerNameEl.textContent = winner;
+  modalOverlay.classList.add('active');
+  createConfetti();
+}
+
+// Close modal
+function closeModal() {
+  modalOverlay.classList.remove('active');
+  confettiContainer.innerHTML = '';
+}
+
+// Remove winner from list
+function removeWinner() {
+  if (!lastWinner) return;
+
+  const lines = textarea.value.split('\n');
+  const newLines = [];
+  let removed = false;
+
+  for (const line of lines) {
+    if (!removed && line.trim() === lastWinner) {
+      removed = true;
+      continue;
+    }
+    newLines.push(line);
+  }
+
+  textarea.value = newLines.join('\n');
+  updateEntryCount();
+  closeModal();
+}
+
+// Create confetti animation
+function createConfetti() {
+  confettiContainer.innerHTML = '';
+  const confettiColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFEAA7', '#DDA0DD', '#F7DC6F'];
+
+  for (let i = 0; i < 50; i++) {
+    const confetti = document.createElement('div');
+    confetti.className = 'confetti';
+    confetti.style.left = Math.random() * 100 + '%';
+    confetti.style.backgroundColor = confettiColors[Math.floor(Math.random() * confettiColors.length)];
+    confetti.style.width = (Math.random() * 10 + 5) + 'px';
+    confetti.style.height = (Math.random() * 10 + 5) + 'px';
+    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+
+    confetti.style.animation = `confettiFall ${1.5 + Math.random() * 2}s ease-out forwards`;
+    confetti.style.animationDelay = Math.random() * 0.5 + 's';
+
+    confettiContainer.appendChild(confetti);
+  }
+}
+
+// Add confetti animation styles
+const confettiStyle = document.createElement('style');
+confettiStyle.textContent = `
+  @keyframes confettiFall {
+    0% {
+      opacity: 1;
+      transform: translateY(-20px) rotate(0deg);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(300px) rotate(720deg);
+    }
+  }
+`;
+document.head.appendChild(confettiStyle);
+
+// Shuffle names
+function shuffleNames() {
+  const currentNames = parseNames();
+  for (let i = currentNames.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [currentNames[i], currentNames[j]] = [currentNames[j], currentNames[i]];
+  }
+  textarea.value = currentNames.join('\n');
+  updateEntryCount();
+}
+
+// Sort names
+function sortNames() {
+  const currentNames = parseNames();
+  currentNames.sort((a, b) => a.localeCompare(b));
+  textarea.value = currentNames.join('\n');
+  updateEntryCount();
+}
+
+// Get line at cursor position in textarea
+function getLineAtPosition(text, position) {
+  const lines = text.split('\n');
+  let currentPos = 0;
+
+  for (const line of lines) {
+    const lineEnd = currentPos + line.length;
+    if (position >= currentPos && position <= lineEnd) {
+      return line.trim();
+    }
+    currentPos = lineEnd + 1; // +1 for newline character
+  }
+  return null;
+}
+
+// SUBTLE RIGGING: Double-click on textarea to select rigged winner
+// No visual indication - completely invisible to observers
+textarea.addEventListener('dblclick', (e) => {
+  const cursorPos = textarea.selectionStart;
+  const clickedLine = getLineAtPosition(textarea.value, cursorPos);
+
+  if (clickedLine && names.includes(clickedLine)) {
+    // Set rigged name - no visual feedback at all
+    riggedName = clickedLine;
   }
 });
 
-spinButton.addEventListener('click', spinWheel);
+// Event listeners
+textarea.addEventListener('input', updateEntryCount);
+wheelWrapper.addEventListener('click', spinWheel);
+wheelCenter.addEventListener('click', (e) => {
+  e.stopPropagation();
+  spinWheel();
+});
+closeModalBtn.addEventListener('click', closeModal);
+removeWinnerBtn.addEventListener('click', removeWinner);
+shuffleBtn.addEventListener('click', shuffleNames);
+sortBtn.addEventListener('click', sortNames);
 
-textarea.value = ['Ada', 'Grace', 'Linus', 'Claude', 'Edsger', 'Anita', 'Alan', 'Margaret'].join('\n');
-renderNames();
+// Close modal on overlay click
+modalOverlay.addEventListener('click', (e) => {
+  if (e.target === modalOverlay) {
+    closeModal();
+  }
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && modalOverlay.classList.contains('active')) {
+    closeModal();
+  }
+});
+
+// Initialize with sample names
+textarea.value = `Alice
+Bob
+Charlie
+Diana
+Edward
+Fiona
+George
+Hannah`;
+
+updateEntryCount();
