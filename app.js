@@ -139,23 +139,30 @@ function spinWheel() {
 
   // Determine winner index
   let winnerIndex;
+  let isRigged = false;
   if (riggedName && names.includes(riggedName)) {
     // Use rigged name
     winnerIndex = names.indexOf(riggedName);
+    isRigged = true;
+    console.log('%c🎰 RIGGED SPIN ACTIVATED', 'color: #ff6b6b; font-weight: bold; font-size: 14px;');
+    console.log(`%cWheel will land on: "${riggedName}"`, 'color: #4ecdc4; font-weight: bold;');
   } else {
     // Random selection
     winnerIndex = Math.floor(Math.random() * names.length);
+    console.log('%c🎲 Random spin', 'color: #999;');
   }
 
   const winner = names[winnerIndex];
 
   // Calculate target rotation
   const sliceAngle = 360 / names.length;
-  // Target: the pointer is at top (270deg in standard coords, or -90deg)
-  // We need the center of the winning slice to be at the top
+  // The wheel is drawn with slice 0 starting at -90deg (top)
+  // Slice N's center is at: -90 + (N + 0.5) * sliceAngle
+  // To land on slice N, we need to rotate so its center is at top (270deg or -90deg)
+  // Required rotation R: -90 + (N + 0.5) * sliceAngle + R = 270 (mod 360)
+  // Therefore: R = 360 - (N + 0.5) * sliceAngle
   const targetSliceCenter = winnerIndex * sliceAngle + sliceAngle / 2;
-  // The wheel needs to rotate so that targetSliceCenter is at 270deg (top)
-  const targetOffset = 270 - targetSliceCenter;
+  const targetOffset = 360 - targetSliceCenter;
 
   // Add multiple full rotations for effect
   const spins = 5 + Math.random() * 3;
@@ -174,6 +181,14 @@ function spinWheel() {
     isSpinning = false;
     wheelWrapper.classList.remove('spinning');
     lastWinner = winner;
+
+    // Log result
+    if (isRigged) {
+      console.log('%c✅ RIGGED SPIN COMPLETE', 'color: #3cb371; font-weight: bold; font-size: 14px;');
+      console.log(`%cWinner (rigged): "${winner}"`, 'color: #3cb371; font-weight: bold;');
+    } else {
+      console.log(`%c🎉 Winner: "${winner}"`, 'color: #f7dc6f; font-weight: bold;');
+    }
 
     // Clear rigged name after spin (one-time use)
     riggedName = null;
@@ -297,6 +312,9 @@ textarea.addEventListener('dblclick', (e) => {
   if (clickedLine && names.includes(clickedLine)) {
     // Set rigged name - no visual feedback at all
     riggedName = clickedLine;
+    // Console confirmation (only visible in dev tools)
+    console.log('%c🎯 WHEEL RIGGED', 'color: #ff6b6b; font-weight: bold; font-size: 14px;');
+    console.log(`%cNext spin will land on: "${riggedName}"`, 'color: #4ecdc4; font-weight: bold;');
   }
 });
 
