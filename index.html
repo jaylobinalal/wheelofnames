@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wheel of Names</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="page-header">
+    <div class="logo">Wheel of Names</div>
+    <p class="tagline">Double-click a name to force the spin to land on it.</p>
+  </header>
+  <main class="layout">
+    <section class="names-panel">
+      <div class="panel-header">
+        <h2>Names</h2>
+        <button id="spinButton" class="primary">Spin</button>
+      </div>
+      <textarea id="namesInput" aria-label="Names" spellcheck="false"></textarea>
+      <p class="helper">Double-click a name in the textarea or list to highlight it and rig the next spin.</p>
+      <div class="selected-pill" id="selectedName">No selected name</div>
+      <ul id="namesList" class="names-list" aria-label="Name list"></ul>
+    </section>
+    <section class="wheel-panel">
+      <div class="wheel-wrapper">
+        <canvas id="wheelCanvas" width="520" height="520" aria-label="Wheel of names"></canvas>
+        <div class="pointer">▲</div>
+      </div>
+      <div id="result" class="result">Waiting for a spin</div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
