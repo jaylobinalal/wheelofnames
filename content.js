@@ -36,43 +36,80 @@
   function extractWheelNames() {
     const names = [];
 
+    console.log('%c[Wheel Rigger] === Starting name extraction ===', 'color: #00bcd4; font-weight: bold;');
+    console.log('[Wheel Rigger] Current URL:', window.location.href);
+    console.log('[Wheel Rigger] Document readyState:', document.readyState);
+    console.log('[Wheel Rigger] Body children count:', document.body?.children?.length || 0);
+
     // Method 1: Try to get from textarea (entry list)
+    console.log('%c[Wheel Rigger] Method 1: Checking textareas...', 'color: #9c27b0;');
+    const allTextareas = document.querySelectorAll('textarea');
+    console.log('[Wheel Rigger] Found', allTextareas.length, 'textarea element(s)');
+    allTextareas.forEach((ta, i) => {
+      console.log(`[Wheel Rigger]   Textarea ${i}: id="${ta.id}", class="${ta.className}", value length=${ta.value?.length || 0}`);
+      if (ta.value) {
+        console.log(`[Wheel Rigger]   Textarea ${i} content preview:`, ta.value.substring(0, 200));
+      }
+    });
+
     const textarea = document.querySelector('textarea');
     if (textarea && textarea.value) {
       const textNames = textarea.value.split('\n').map(n => n.trim()).filter(n => n);
       if (textNames.length > 0) {
-        console.log('[Wheel Rigger] Found names in textarea:', textNames);
+        console.log('%c[Wheel Rigger] SUCCESS: Found names in textarea:', 'color: #4caf50; font-weight: bold;', textNames);
         return textNames;
+      } else {
+        console.log('[Wheel Rigger] Textarea exists but no valid names after parsing');
       }
+    } else {
+      console.log('[Wheel Rigger] No textarea found or textarea is empty');
     }
 
     // Method 2: Try to get from wheel segments (SVG text elements)
+    console.log('%c[Wheel Rigger] Method 2: Checking SVG text elements...', 'color: #9c27b0;');
+    const allSvgs = document.querySelectorAll('svg');
+    console.log('[Wheel Rigger] Found', allSvgs.length, 'SVG element(s)');
+    allSvgs.forEach((svg, i) => {
+      console.log(`[Wheel Rigger]   SVG ${i}: id="${svg.id}", class="${svg.className?.baseVal || svg.className}", dimensions=${svg.width?.baseVal?.value || 'auto'}x${svg.height?.baseVal?.value || 'auto'}`);
+    });
+
     const svgTexts = document.querySelectorAll('svg text');
-    svgTexts.forEach(text => {
-      const name = text.textContent?.trim();
-      if (name && name.length > 0 && !name.match(/^[\d\s]*$/)) {
-        names.push(name);
+    console.log('[Wheel Rigger] Found', svgTexts.length, 'SVG text element(s)');
+    svgTexts.forEach((text, i) => {
+      const content = text.textContent?.trim();
+      const isNumeric = content?.match(/^[\d\s]*$/);
+      console.log(`[Wheel Rigger]   SVG text ${i}: "${content}" (numeric-only: ${!!isNumeric})`);
+      if (content && content.length > 0 && !isNumeric) {
+        names.push(content);
       }
     });
     if (names.length > 0) {
-      console.log('[Wheel Rigger] Found names in SVG:', names);
+      console.log('%c[Wheel Rigger] SUCCESS: Found names in SVG:', 'color: #4caf50; font-weight: bold;', names);
       return names;
+    } else {
+      console.log('[Wheel Rigger] No valid names found in SVG text elements');
     }
 
     // Method 3: Try to find in any input fields
+    console.log('%c[Wheel Rigger] Method 3: Checking input fields...', 'color: #9c27b0;');
     const inputs = document.querySelectorAll('input[type="text"]');
-    inputs.forEach(input => {
+    console.log('[Wheel Rigger] Found', inputs.length, 'text input element(s)');
+    inputs.forEach((input, i) => {
+      console.log(`[Wheel Rigger]   Input ${i}: id="${input.id}", name="${input.name}", class="${input.className}", value="${input.value}"`);
       const name = input.value?.trim();
       if (name && name.length > 0) {
         names.push(name);
       }
     });
     if (names.length > 0) {
-      console.log('[Wheel Rigger] Found names in inputs:', names);
+      console.log('%c[Wheel Rigger] SUCCESS: Found names in inputs:', 'color: #4caf50; font-weight: bold;', names);
       return names;
+    } else {
+      console.log('[Wheel Rigger] No valid names found in input fields');
     }
 
     // Method 4: Look for common wheel entry containers
+    console.log('%c[Wheel Rigger] Method 4: Checking CSS selectors...', 'color: #9c27b0;');
     const entrySelectors = [
       '.entry', '.wheel-entry', '.name', '.participant',
       '[class*="entry"]', '[class*="name"]', '[class*="wheel"] span',
@@ -82,18 +119,43 @@
     entrySelectors.forEach(selector => {
       try {
         const elements = document.querySelectorAll(selector);
-        elements.forEach(el => {
+        console.log(`[Wheel Rigger]   Selector "${selector}": found ${elements.length} element(s)`);
+        elements.forEach((el, i) => {
           const name = el.textContent?.trim();
+          console.log(`[Wheel Rigger]     Element ${i}: tag=${el.tagName}, class="${el.className}", text="${name?.substring(0, 50)}"`);
           if (name && name.length > 0 && name.length < 100) {
             names.push(name);
           }
         });
-      } catch (e) {}
+      } catch (e) {
+        console.log(`[Wheel Rigger]   Selector "${selector}": ERROR -`, e.message);
+      }
     });
 
     // Deduplicate
     const uniqueNames = [...new Set(names)];
-    console.log('[Wheel Rigger] Extracted names:', uniqueNames);
+    console.log('%c[Wheel Rigger] === Extraction complete ===', 'color: #00bcd4; font-weight: bold;');
+    console.log('[Wheel Rigger] Final extracted names:', uniqueNames);
+    console.log('[Wheel Rigger] Total unique names:', uniqueNames.length);
+
+    // Additional DOM debugging if no names found
+    if (uniqueNames.length === 0) {
+      console.log('%c[Wheel Rigger] === DOM Debug Info (no names found) ===', 'color: #ff9800; font-weight: bold;');
+      console.log('[Wheel Rigger] Document title:', document.title);
+      console.log('[Wheel Rigger] Main content areas:');
+      ['#app', '#root', '.app', '.main', 'main', '[class*="wheel"]', '[class*="spinner"]'].forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) {
+          console.log(`[Wheel Rigger]   ${sel}: found, innerHTML length=${el.innerHTML.length}`);
+        }
+      });
+      console.log('[Wheel Rigger] Canvas elements:', document.querySelectorAll('canvas').length);
+      console.log('[Wheel Rigger] All classes containing "wheel":',
+        [...document.querySelectorAll('[class*="wheel"]')].map(el => el.className).slice(0, 10));
+      console.log('[Wheel Rigger] All classes containing "entry":',
+        [...document.querySelectorAll('[class*="entry"]')].map(el => el.className).slice(0, 10));
+    }
+
     wheelNames = uniqueNames;
     return uniqueNames;
   }
@@ -302,32 +364,76 @@
 
   // Initialize
   function init() {
-    console.log('[Wheel Rigger] Initializing...');
+    console.log('%c[Wheel Rigger] Initializing...', 'color: #2196f3; font-weight: bold; font-size: 14px;');
+    console.log('[Wheel Rigger] Init state:', {
+      readyState: document.readyState,
+      url: window.location.href,
+      bodyExists: !!document.body,
+      bodyChildCount: document.body?.children?.length || 0
+    });
 
     // Wait for page to fully load
+    console.log('[Wheel Rigger] Scheduling initial extraction in 1500ms...');
     setTimeout(() => {
+      console.log('%c[Wheel Rigger] Running delayed initialization...', 'color: #2196f3;');
+      console.log('[Wheel Rigger] Post-delay state:', {
+        readyState: document.readyState,
+        bodyChildCount: document.body?.children?.length || 0
+      });
       extractWheelNames();
       loadSavedWinner();
       updateIndicator();
     }, 1500);
 
+    // Also try extraction at different intervals to catch late-loading content
+    [3000, 5000, 8000].forEach(delay => {
+      setTimeout(() => {
+        console.log(`[Wheel Rigger] Retry extraction at ${delay}ms...`);
+        const names = extractWheelNames();
+        if (names.length > 0) {
+          console.log(`%c[Wheel Rigger] Found ${names.length} names at ${delay}ms delay!`, 'color: #4caf50; font-weight: bold;');
+        }
+      }, delay);
+    });
+
     // Re-extract names when DOM changes
-    const observer = new MutationObserver(() => {
+    let mutationCount = 0;
+    const observer = new MutationObserver((mutations) => {
+      mutationCount++;
+      if (mutationCount <= 10 || mutationCount % 50 === 0) {
+        console.log(`[Wheel Rigger] DOM mutation #${mutationCount}, ${mutations.length} change(s)`);
+      }
       if (!isRigging) {
-        wheelNames = extractWheelNames();
+        // Debounce extraction
+        clearTimeout(window.__wheelRiggerExtractTimeout);
+        window.__wheelRiggerExtractTimeout = setTimeout(() => {
+          console.log('[Wheel Rigger] Re-extracting names after DOM mutation...');
+          wheelNames = extractWheelNames();
+        }, 500);
       }
     });
 
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
+    if (document.body) {
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+      console.log('[Wheel Rigger] MutationObserver attached to body');
+    } else {
+      console.warn('[Wheel Rigger] document.body not available for observer!');
+    }
   }
 
   // Run initialization
+  console.log('[Wheel Rigger] Script executing, readyState:', document.readyState);
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    console.log('[Wheel Rigger] Waiting for DOMContentLoaded...');
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('[Wheel Rigger] DOMContentLoaded fired');
+      init();
+    });
   } else {
+    console.log('[Wheel Rigger] Document already loaded, running init immediately');
     init();
   }
 

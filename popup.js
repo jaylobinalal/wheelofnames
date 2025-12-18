@@ -88,34 +88,94 @@ async function loadNamesFromPage(tabId) {
 
   try {
     addLog('Loading names from wheel...');
+    console.log('[Wheel Rigger Popup] Starting loadNamesFromPage, tabId:', tabId);
 
-    const results = await chrome.scripting.executeScript({
+    // First, check if the content script is loaded
+    console.log('[Wheel Rigger Popup] Checking if content script is loaded...');
+    const checkResults = await chrome.scripting.executeScript({
       target: { tabId },
       func: () => {
-        // Try to get names from the wheel
-        return window.__wheelRigger?.getNames() || [];
+        const hasRigger = !!window.__wheelRigger;
+        console.log('[Wheel Rigger] Content script check - __wheelRigger exists:', hasRigger);
+        if (hasRigger) {
+          console.log('[Wheel Rigger] __wheelRigger methods:', Object.keys(window.__wheelRigger));
+        }
+        return {
+          hasRigger,
+          url: window.location.href,
+          readyState: document.readyState,
+          bodyExists: !!document.body,
+          bodyChildCount: document.body?.children?.length || 0
+        };
       }
     });
 
-    const names = results[0]?.result || [];
+    const checkResult = checkResults[0]?.result;
+    console.log('[Wheel Rigger Popup] Content script check result:', checkResult);
+    addLog(`Page state: readyState=${checkResult?.readyState}, hasRigger=${checkResult?.hasRigger}`);
+
+    if (!checkResult?.hasRigger) {
+      addLog('ERROR: Content script not loaded! Try refreshing the page.');
+      console.error('[Wheel Rigger Popup] Content script not loaded - window.__wheelRigger is undefined');
+      winnerSelect.innerHTML = '<option value="">-- Content script not loaded --</option>';
+      return;
+    }
+
+    // Now get the names
+    console.log('[Wheel Rigger Popup] Calling getNames()...');
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        console.log('[Wheel Rigger] getNames() called from popup');
+        try {
+          const names = window.__wheelRigger?.getNames() || [];
+          console.log('[Wheel Rigger] getNames() returning:', names);
+          return {
+            names,
+            error: null
+          };
+        } catch (e) {
+          console.error('[Wheel Rigger] getNames() error:', e);
+          return {
+            names: [],
+            error: e.message
+          };
+        }
+      }
+    });
+
+    console.log('[Wheel Rigger Popup] executeScript results:', results);
+    const result = results[0]?.result;
+    const names = result?.names || [];
+
+    if (result?.error) {
+      console.error('[Wheel Rigger Popup] getNames error:', result.error);
+      addLog(`ERROR in getNames: ${result.error}`);
+    }
+
+    console.log('[Wheel Rigger Popup] Extracted names:', names);
+    addLog(`getNames returned ${names.length} name(s)`);
 
     if (names.length > 0) {
       winnerSelect.innerHTML = '<option value="">-- Select winner --</option>';
-      names.forEach(name => {
+      names.forEach((name, i) => {
         const option = document.createElement('option');
         option.value = name;
         option.textContent = name;
         winnerSelect.appendChild(option);
+        console.log(`[Wheel Rigger Popup] Added option ${i}: "${name}"`);
       });
       winnerSelect.disabled = false;
-      addLog(`Loaded ${names.length} names`);
+      addLog(`Loaded ${names.length} names successfully`);
     } else {
       winnerSelect.innerHTML = '<option value="">-- No names found --</option>';
-      addLog('No names found. Make sure the wheel has entries.');
+      addLog('No names found. Check browser console for debug info.');
+      console.warn('[Wheel Rigger Popup] No names returned. Check the content script console logs on the page for detailed extraction info.');
     }
   } catch (err) {
-    console.error('Error loading names:', err);
-    addLog('Error loading names. Try refreshing the page.');
+    console.error('[Wheel Rigger Popup] Error loading names:', err);
+    console.error('[Wheel Rigger Popup] Error stack:', err.stack);
+    addLog(`Error: ${err.message}`);
   }
 }
 
