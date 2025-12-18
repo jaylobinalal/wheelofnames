@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wheel Rigger</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Wheel Rigger</h1>
+
+    <div id="status-container">
+      <div id="status" class="status-inactive">Not on wheelofnames.com</div>
+    </div>
+
+    <div id="controls">
+      <div class="section">
+        <label for="winner-select">Select Winner:</label>
+        <select id="winner-select" disabled>
+          <option value="">-- Load names first --</option>
+        </select>
+      </div>
+
+      <div class="section">
+        <label for="manual-winner">Or enter manually:</label>
+        <input type="text" id="manual-winner" placeholder="Enter name to rig">
+      </div>
+
+      <div class="button-group">
+        <button id="refresh-btn" class="btn btn-secondary">Refresh Names</button>
+        <button id="rig-btn" class="btn btn-primary">Rig Wheel</button>
+      </div>
+
+      <div class="section">
+        <label>
+          <input type="checkbox" id="auto-rig">
+          Auto-rig on page load
+        </label>
+      </div>
+    </div>
+
+    <div id="rigged-status" class="hidden">
+      <div class="rigged-badge">RIGGED</div>
+      <div id="rigged-name"></div>
+      <button id="clear-rig-btn" class="btn btn-danger">Clear Rig</button>
+    </div>
+
+    <div id="log-container">
+      <h3>Activity Log</h3>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
